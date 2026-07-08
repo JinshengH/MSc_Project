@@ -1,0 +1,21 @@
+name: msc
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pytorch
+  - pytorch-cuda=12.1
+  - torchvision
+  - numpy
+  - pillow
+  - pip
+  - pip:
+      - transformers
+      - datasets
+      - scikit-learn
+      - pandas
+      - matplotlib
+      - python-dotenv
+      - wandb

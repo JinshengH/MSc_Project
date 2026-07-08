@@ -1,4 +1,7 @@
+import torch
 import torch.nn as nn
+
+from src.models.encoders import ImageEncoder, TextEncoder
 
 class ContradictionAwareLayer(nn.Module):
     def __init__(self, hidden_dim, num_heads, dropout=0.1):
