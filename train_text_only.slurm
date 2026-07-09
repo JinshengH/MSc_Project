@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=text_only            # Job name (override: sbatch -J <name>)
-#SBATCH --time=03:00:00            # Request runtime (hh:mm:ss)
+#SBATCH --time=01:00:00            # Request runtime (hh:mm:ss)
 #SBATCH --partition=gpu            # Request GPU partition
 #SBATCH --gres=gpu:1               # Request 1 GPU
 #SBATCH --cpus-per-task=8          # Request 8 CPU cores
