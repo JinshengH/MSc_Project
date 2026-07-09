@@ -14,6 +14,7 @@ from datasets import load_from_disk
 from sklearn.metrics import f1_score, recall_score
 
 from src.models.CAMC import CAMC
+from src.models.text_only import TextOnly
 from src.utils.env import HF_TOKEN
 from src.utils import paths
 from src.utils.plot import plot_loss_acc
@@ -42,6 +43,22 @@ def prepare_data_dir(cfg):
         print(f"No staged dataset at {staged_dir}; using {data_dir}")
 
     return data_dir
+
+
+def build_model(cfg):
+    if cfg.model_name == "camc":
+        return CAMC(
+            hidden_dim=cfg.hidden_dim,
+            num_heads=cfg.num_heads,
+            num_layers=cfg.num_layers,
+            num_classes=cfg.num_classes,
+        )
+    if cfg.model_name == "text_only":
+        return TextOnly(
+            hidden_dim=cfg.hidden_dim,
+            num_classes=cfg.num_classes,
+        )
+    raise ValueError(f"Unknown model_name: {cfg.model_name}")
 
 
 def set_seed(seed, device):
@@ -272,12 +289,11 @@ def main(config, config_name):
         data_dir, config, tokenizer, device)
     print(f"train/val size: {len(train_ds)}/{len(val_ds)}")
 
-    model = CAMC(
-        hidden_dim=config.hidden_dim,
-        num_heads=config.num_heads,
-        num_layers=config.num_layers,
-        num_classes=config.num_classes,
-    ).to(device)
+    model = build_model(config).to(device)
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    total = sum(p.numel() for p in model.parameters())
+    print(f"Model: {config.model_name} | "
+          f"trainable {trainable/1e6:.1f}M / total {total/1e6:.1f}M")
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=config.lr, weight_decay=config.weight_decay)

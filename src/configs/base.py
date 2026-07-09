@@ -16,7 +16,8 @@ class Config:
     results_dir: Path = paths.RESULTS_DIR
     staged_data_name: str = "snli-ve"
 
-    # Model
+    # Model; model_name selects the architecture in src.train.build_model
+    model_name: str = "camc"
     hidden_dim: int = 768
     num_heads: int = 8
     num_layers: int = 6

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=camc            # Job name (override: sbatch -J <name>)
+#SBATCH --job-name=text_only            # Job name (override: sbatch -J <name>)
 #SBATCH --time=03:00:00            # Request runtime (hh:mm:ss)
 #SBATCH --partition=gpu            # Request GPU partition
 #SBATCH --gres=gpu:1               # Request 1 GPU
@@ -28,7 +28,7 @@ cp -r "$SCRATCH/msc_project/data/snli-ve" "$TMP_SHARED/snli-ve"
 
 # This experiment config is also the Python entrypoint.
 cd "$HOME/msc_project"
-python -u -m src.configs.camc_seed42
+python -u -m src.configs.text_only_seed42
 
 echo "Finished $(date)"
 
