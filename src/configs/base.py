@@ -27,6 +27,7 @@ class Config:
     batch_size: int = 32
     lr: float = 1e-4
     weight_decay: float = 1e-4
+    max_grad_norm: float = 1.0  # gradient clipping threshold
     subset: int = 1000          # first N samples per split; 0 = full data
 
     # Scheduler-provided machine context; 0 for local runs

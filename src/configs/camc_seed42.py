@@ -7,8 +7,10 @@ config = Config(
     data_dir=paths.scratch_project_path(
         "data", "snli-ve", local="jupyter/snli-ve"),
     results_dir=paths.scratch_project_path("results"),
-    subset=0,       # full data
+    subset=0,        # full data (train 529k / val 17.9k)
     epochs=5,
+    batch_size=128,  # L40S has headroom; fixed here for all later experiments
+    lr=1e-4,         # scaled with batch size (3e-5 at bs=32)
 )
 
 

@@ -193,6 +193,8 @@ def train(model, optimizer, criterion, train_loader, val_loader,
             loss = criterion(logits, labels)
             optimizer.zero_grad()
             loss.backward()
+            # Clip gradient spikes so one bad batch cannot blow up the weights
+            torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
             optimizer.step()
 
             _, predicted = torch.max(logits, 1)
