@@ -9,7 +9,11 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-from transformers import AutoTokenizer, DataCollatorWithPadding
+from transformers import (
+    AutoTokenizer,
+    DataCollatorWithPadding,
+    get_cosine_schedule_with_warmup,
+)
 from datasets import load_from_disk
 from sklearn.metrics import f1_score, recall_score
 
@@ -52,13 +56,26 @@ def build_model(cfg):
             num_heads=cfg.num_heads,
             num_layers=cfg.num_layers,
             num_classes=cfg.num_classes,
+            dropout=cfg.dropout,
         )
     if cfg.model_name == "text_only":
         return TextOnly(
             hidden_dim=cfg.hidden_dim,
             num_classes=cfg.num_classes,
+            dropout=cfg.dropout,
         )
     raise ValueError(f"Unknown model_name: {cfg.model_name}")
+
+
+def build_scheduler(cfg, optimizer, steps_per_epoch):
+    if cfg.scheduler == "none":
+        return None
+    if cfg.scheduler == "cosine":
+        total_steps = steps_per_epoch * cfg.epochs
+        warmup_steps = int(total_steps * cfg.warmup_ratio)
+        return get_cosine_schedule_with_warmup(
+            optimizer, warmup_steps, total_steps)
+    raise ValueError(f"Unknown scheduler: {cfg.scheduler}")
 
 
 def set_seed(seed, device):
@@ -72,38 +89,50 @@ def set_seed(seed, device):
 def build_dataloaders(data_dir, cfg, tokenizer, device):
     ds = load_from_disk(data_dir)
 
-    image_transform = transforms.Compose([
-        transforms.Resize((224, 224)),
+    normalize = [
         transforms.ToTensor(),
         transforms.Normalize(
             mean=[0.485, 0.456, 0.406],
             std=[0.229, 0.224, 0.225]
         )
-    ])
+    ]
+    eval_transform = transforms.Compose(
+        [transforms.Resize((224, 224))] + normalize)
+    if cfg.augment_train_images:
+        # Mild crop jitter only. No horizontal flip and no colour jitter:
+        # SNLI-VE hypotheses assert left/right spatial relations and colours,
+        # so either would silently corrupt labels.
+        train_transform = transforms.Compose(
+            [transforms.RandomResizedCrop(
+                224, scale=(0.8, 1.0), ratio=(0.9, 1.1))] + normalize)
+    else:
+        train_transform = eval_transform
 
-    def preprocess(examples):
-        inputs = tokenizer(
-            examples["hypothesis"],
-            truncation=True,
-            max_length=128
-        )
-        inputs["pixel_values"] = [
-            image_transform(img.convert("RGB"))
-            for img in examples["image"]
-        ]
-        inputs["labels"] = examples["label"]
-        return inputs
+    def make_preprocess(image_transform):
+        def preprocess(examples):
+            inputs = tokenizer(
+                examples["hypothesis"],
+                truncation=True,
+                max_length=128
+            )
+            inputs["pixel_values"] = [
+                image_transform(img.convert("RGB"))
+                for img in examples["image"]
+            ]
+            inputs["labels"] = examples["label"]
+            return inputs
+        return preprocess
 
-    def get_cleaned_dataset(set_name):
+    def get_cleaned_dataset(set_name, image_transform):
         split = ds[set_name]
         if cfg.subset > 0:
             split = split.select(range(min(cfg.subset, len(split))))
         split = split.filter(lambda label: label != -1, input_columns=["label"])
-        split.set_transform(preprocess)
+        split.set_transform(make_preprocess(image_transform))
         return split
 
-    train_ds = get_cleaned_dataset("train")
-    val_ds = get_cleaned_dataset("validation")
+    train_ds = get_cleaned_dataset("train", train_transform)
+    val_ds = get_cleaned_dataset("validation", eval_transform)
 
     text_collator = DataCollatorWithPadding(tokenizer)
 
@@ -167,8 +196,8 @@ def evaluate(model, loader, criterion, device):
     return val_loss, val_acc, val_macro_f1, val_contradiction_recall
 
 
-def train(model, optimizer, criterion, train_loader, val_loader,
-          cfg, out_dir, device):
+def train(model, optimizer, scheduler, criterion, eval_criterion,
+          train_loader, val_loader, cfg, out_dir, device):
     last_path = out_dir / "last.pt"
     best_path = out_dir / "best.pt"
     csv_path = out_dir / "metrics.csv"
@@ -182,6 +211,8 @@ def train(model, optimizer, criterion, train_loader, val_loader,
         ckpt = torch.load(last_path, map_location=device)
         model.load_state_dict(ckpt["model"])
         optimizer.load_state_dict(ckpt["optimizer"])
+        if scheduler is not None and ckpt.get("scheduler") is not None:
+            scheduler.load_state_dict(ckpt["scheduler"])
         start_epoch = ckpt["epoch"] + 1
         best_val_f1 = ckpt.get("best_val_f1", 0.0)
         best_epoch = ckpt.get("best_epoch", 0)
@@ -213,6 +244,8 @@ def train(model, optimizer, criterion, train_loader, val_loader,
             # Clip gradient spikes so one bad batch cannot blow up the weights
             torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
             optimizer.step()
+            if scheduler is not None:
+                scheduler.step()
 
             _, predicted = torch.max(logits, 1)
             running_loss += loss.item()
@@ -223,7 +256,7 @@ def train(model, optimizer, criterion, train_loader, val_loader,
         train_acc = running_correct / num_train_samples
 
         val_loss, val_acc, val_f1, contra_recall = evaluate(
-            model, val_loader, criterion, device)
+            model, val_loader, eval_criterion, device)
 
         # best.pt: saved whenever val macro-F1 hits a new high
         if val_f1 > best_val_f1:
@@ -236,6 +269,7 @@ def train(model, optimizer, criterion, train_loader, val_loader,
             "epoch": epoch,
             "model": model.state_dict(),
             "optimizer": optimizer.state_dict(),
+            "scheduler": scheduler.state_dict() if scheduler else None,
             "best_val_f1": best_val_f1,
             "best_epoch": best_epoch,
         }, last_path)
@@ -247,6 +281,7 @@ def train(model, optimizer, criterion, train_loader, val_loader,
                 f"{val_f1:.6f}", f"{contra_recall:.6f}"])
 
         print(f"Epoch {epoch+1}/{cfg.epochs} | "
+              f"LR: {optimizer.param_groups[0]['lr']:.2e} | "
               f"Train Loss: {train_loss:.4f} | "
               f"Train Acc: {train_acc:.4f} | "
               f"Val Loss: {val_loss:.4f} | "
@@ -294,13 +329,17 @@ def main(config, config_name):
     total = sum(p.numel() for p in model.parameters())
     print(f"Model: {config.model_name} | "
           f"trainable {trainable/1e6:.1f}M / total {total/1e6:.1f}M")
-    criterion = nn.CrossEntropyLoss()
+    # Smoothing regularises the train loss only; val loss stays plain CE so
+    # val_loss remains comparable across experiments.
+    criterion = nn.CrossEntropyLoss(label_smoothing=config.label_smoothing)
+    eval_criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
+    scheduler = build_scheduler(config, optimizer, len(train_loader))
 
     best_val_f1, best_epoch = train(
-        model, optimizer, criterion, train_loader, val_loader,
-        config, out_dir, device)
+        model, optimizer, scheduler, criterion, eval_criterion,
+        train_loader, val_loader, config, out_dir, device)
     print(f"Best val macro-F1 {best_val_f1:.4f} @ epoch {best_epoch}")
 
     # Plot from the full metrics.csv history, so curves stay complete after resume

@@ -37,11 +37,11 @@ class ContradictionAwareLayer(nn.Module):
         return txt_emb, attn_weights
     
 class ContradictionAwareEncoder(nn.Module):
-    def __init__(self, hidden_dim, num_heads=8, num_layers=6):
+    def __init__(self, hidden_dim, num_heads=8, num_layers=6, dropout=0.1):
         super().__init__()
         self.img_proj = nn.Linear(hidden_dim, hidden_dim)
         self.layers = nn.ModuleList([
-            ContradictionAwareLayer(hidden_dim, num_heads)
+            ContradictionAwareLayer(hidden_dim, num_heads, dropout=dropout)
             for _ in range(num_layers)
         ])
 
@@ -67,12 +67,12 @@ class ContradictionAwareEncoder(nn.Module):
     
 class CAMC(nn.Module):
     def __init__(self, hidden_dim=768, num_heads=8,
-                 num_layers=6, num_classes=3):
+                 num_layers=6, num_classes=3, dropout=0.1):
         super().__init__()
         self.ie = ImageEncoder()
         self.te = TextEncoder()
         self.encoder = ContradictionAwareEncoder(
-            hidden_dim, num_heads, num_layers
+            hidden_dim, num_heads, num_layers, dropout=dropout
         )
 
 
@@ -86,7 +86,7 @@ class CAMC(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(hidden_dim * 4, hidden_dim),
             nn.GELU(),
-            nn.Dropout(0.1),
+            nn.Dropout(dropout),
             nn.Linear(hidden_dim, num_classes)
         )
 

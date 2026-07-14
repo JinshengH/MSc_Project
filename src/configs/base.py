@@ -31,6 +31,16 @@ class Config:
     max_grad_norm: float = 1.0  # gradient clipping threshold
     subset: int = 1000          # first N samples per split; 0 = full data
 
+    # Regularisation; the defaults reproduce the original camc/text_only runs
+    dropout: float = 0.1
+    label_smoothing: float = 0.0    # train loss only; val loss stays plain CE
+    augment_train_images: bool = False  # RandomResizedCrop on train split only
+
+    # LR schedule; "none" = constant lr (original runs), "cosine" = linear
+    # warmup over warmup_ratio of total steps then cosine decay to 0
+    scheduler: str = "none"
+    warmup_ratio: float = 0.0
+
     # Scheduler-provided machine context; 0 for local runs
     num_workers: int = field(
         default_factory=lambda: int(os.getenv("SLURM_CPUS_PER_TASK", "0"))

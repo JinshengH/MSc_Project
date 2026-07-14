@@ -12,7 +12,7 @@ class TextOnly(nn.Module):
     generic; pixel_values is ignored.
     """
 
-    def __init__(self, hidden_dim=768, num_classes=3):
+    def __init__(self, hidden_dim=768, num_classes=3, dropout=0.1):
         super().__init__()
         self.te = TextEncoder()
         for p in self.te.parameters():
@@ -22,7 +22,7 @@ class TextOnly(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim),
             nn.GELU(),
-            nn.Dropout(0.1),
+            nn.Dropout(dropout),
             nn.Linear(hidden_dim, num_classes),
         )
 
