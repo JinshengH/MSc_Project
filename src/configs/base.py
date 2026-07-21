@@ -23,6 +23,12 @@ class Config:
     num_layers: int = 6
     num_classes: int = 3
 
+    # Preprocessing; defaults reproduce the BERT+ViT experiments. CLIP
+    # experiments override both (CLIP tokenizer caps text at 77 tokens and
+    # its image normalisation differs from ImageNet's).
+    tokenizer_name: str = "bert-base-uncased"
+    image_norm: str = "imagenet"    # "imagenet" | "clip"
+
     # Training
     epochs: int = 2
     batch_size: int = 32
