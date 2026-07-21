@@ -18,6 +18,8 @@ from datasets import load_from_disk
 from sklearn.metrics import f1_score, recall_score
 
 from src.models.CAMC import CAMC
+from src.models.clip_fusion import CLIPFusion
+from src.models.late_fusion import LateFusion
 from src.models.text_only import TextOnly
 from src.utils.env import HF_TOKEN
 from src.utils import paths
@@ -35,7 +37,7 @@ def config_dict(cfg):
 
 
 def prepare_data_dir(cfg):
-    # train.slurm copies the dataset to flash ($TMP_SHARED) before python
+    # the training slurm (sbatch/) copies the dataset to flash ($TMP_SHARED) before python
     data_dir = paths.resolve_path(cfg.data_dir)
 
     tmp_shared = os.getenv("TMP_SHARED")
@@ -60,6 +62,18 @@ def build_model(cfg):
         )
     if cfg.model_name == "text_only":
         return TextOnly(
+            hidden_dim=cfg.hidden_dim,
+            num_classes=cfg.num_classes,
+            dropout=cfg.dropout,
+        )
+    if cfg.model_name == "late_fusion":
+        return LateFusion(
+            hidden_dim=cfg.hidden_dim,
+            num_classes=cfg.num_classes,
+            dropout=cfg.dropout,
+        )
+    if cfg.model_name == "clip_fusion":
+        return CLIPFusion(
             hidden_dim=cfg.hidden_dim,
             num_classes=cfg.num_classes,
             dropout=cfg.dropout,
@@ -89,12 +103,16 @@ def set_seed(seed, device):
 def build_dataloaders(data_dir, cfg, tokenizer, device):
     ds = load_from_disk(data_dir)
 
+    # Normalisation must match the frozen image encoder's pretraining
+    norm_stats = {
+        "imagenet": ([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+        "clip": ([0.48145466, 0.4578275, 0.40821073],
+                 [0.26862954, 0.26130258, 0.27577711]),
+    }
+    mean, std = norm_stats[cfg.image_norm]
     normalize = [
         transforms.ToTensor(),
-        transforms.Normalize(
-            mean=[0.485, 0.456, 0.406],
-            std=[0.229, 0.224, 0.225]
-        )
+        transforms.Normalize(mean=mean, std=std)
     ]
     eval_transform = transforms.Compose(
         [transforms.Resize((224, 224))] + normalize)
@@ -108,12 +126,15 @@ def build_dataloaders(data_dir, cfg, tokenizer, device):
     else:
         train_transform = eval_transform
 
+    # CLIP's tokenizer caps at 77 tokens; BERT keeps the original 128 cap
+    text_max_length = min(128, tokenizer.model_max_length)
+
     def make_preprocess(image_transform):
         def preprocess(examples):
             inputs = tokenizer(
                 examples["hypothesis"],
                 truncation=True,
-                max_length=128
+                max_length=text_max_length
             )
             inputs["pixel_values"] = [
                 image_transform(img.convert("RGB"))
@@ -319,7 +340,7 @@ def main(config, config_name):
 
     tokenizer_kwargs = {"token": HF_TOKEN} if HF_TOKEN else {}
     tokenizer = AutoTokenizer.from_pretrained(
-        "bert-base-uncased", **tokenizer_kwargs)
+        config.tokenizer_name, **tokenizer_kwargs)
     train_loader, val_loader, train_ds, val_ds = build_dataloaders(
         data_dir, config, tokenizer, device)
     print(f"train/val size: {len(train_ds)}/{len(val_ds)}")

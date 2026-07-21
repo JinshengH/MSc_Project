@@ -6,7 +6,7 @@ set -euo pipefail
 
 if [[ -n "${SLURM_JOB_ID:-}" ]]; then
     echo "Do not run setup.sh inside a Slurm job."
-    echo "Run it once on the login node before submitting train.slurm."
+    echo "Run it once on the login node before submitting sbatch/train.slurm."
     exit 1
 fi
 
@@ -132,4 +132,4 @@ fi
 echo "Setup complete."
 echo "Next:"
 echo "  mkdir -p logs"
-echo "  sbatch train.slurm"
+echo "  sbatch sbatch/train.slurm"
