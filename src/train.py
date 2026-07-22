@@ -73,7 +73,13 @@ def build_model(cfg):
             dropout=cfg.dropout,
         )
     if cfg.model_name == "clip_fusion":
+        clip_dir = paths.resolve_path(cfg.clip_model_dir)
+        if not (clip_dir / "model.safetensors").exists():
+            raise FileNotFoundError(
+                f"CLIP weights not found at {clip_dir}. Run "
+                "`python scripts/convert_clip_to_safetensors.py` once first.")
         return CLIPFusion(
+            model=clip_dir,
             hidden_dim=cfg.hidden_dim,
             num_classes=cfg.num_classes,
             dropout=cfg.dropout,

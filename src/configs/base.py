@@ -29,6 +29,10 @@ class Config:
     tokenizer_name: str = "bert-base-uncased"
     image_norm: str = "imagenet"    # "imagenet" | "clip"
 
+    # CLIP experiments only: local safetensors model dir, produced once by
+    # scripts/convert_clip_to_safetensors.py (see that script for why).
+    clip_model_dir: Path | None = None
+
     # Training
     epochs: int = 2
     batch_size: int = 32

@@ -14,6 +14,10 @@ config = Config(
     data_dir=paths.scratch_project_path(
         "data", "snli-ve", local="jupyter/snli-ve"),
     results_dir=paths.scratch_project_path("results"),
+    # Local safetensors copy; see scripts/convert_clip_to_safetensors.py
+    clip_model_dir=paths.scratch_project_path(
+        "models", "clip-vit-base-patch16",
+        local="models/clip-vit-base-patch16"),
     tokenizer_name="openai/clip-vit-base-patch16",
     image_norm="clip",
     subset=0,        # full data, same as camc_seed42

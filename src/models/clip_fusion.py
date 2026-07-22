@@ -17,10 +17,13 @@ class CLIPFusion(nn.Module):
     re-projecting would distort the alignment under test.
     """
 
-    def __init__(self, model="openai/clip-vit-base-patch16", embed_dim=512,
+    def __init__(self, model, embed_dim=512,
                  hidden_dim=768, num_classes=3, dropout=0.1):
         super().__init__()
-        self.clip = CLIPModel.from_pretrained(model)
+        # Local safetensors copy produced by scripts/convert_clip_to_safetensors.py;
+        # the upstream repo ships only .bin, which transformers refuses to load
+        # under torch < 2.6 (CVE-2025-32434).
+        self.clip = CLIPModel.from_pretrained(str(model))
         for p in self.clip.parameters():
             p.requires_grad = False
         self.clip.eval()
@@ -33,10 +36,18 @@ class CLIPFusion(nn.Module):
         )
 
     def forward(self, pixel_values, input_ids, attention_mask=None):
+        # Explicit tower + projection path rather than get_image_features /
+        # get_text_features: those changed return type across transformers
+        # major versions (5.x hands back an output object of unprojected
+        # hidden states), while vision_model/text_model + visual_projection/
+        # text_projection are stable. Normalised, this reproduces CLIPModel's
+        # own image_embeds/text_embeds exactly (verified to ~6e-8).
         with torch.no_grad():
-            img_pool = self.clip.get_image_features(pixel_values=pixel_values)
-            text_pool = self.clip.get_text_features(
+            vision_out = self.clip.vision_model(pixel_values=pixel_values)
+            text_out = self.clip.text_model(
                 input_ids=input_ids, attention_mask=attention_mask)
+            img_pool = self.clip.visual_projection(vision_out.pooler_output)
+            text_pool = self.clip.text_projection(text_out.pooler_output)
         img_pool = F.normalize(img_pool, dim=-1)
         text_pool = F.normalize(text_pool, dim=-1)
 
