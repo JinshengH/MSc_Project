@@ -19,6 +19,7 @@ from sklearn.metrics import f1_score, recall_score
 
 from src.models.CAMC import CAMC
 from src.models.clip_fusion import CLIPFusion
+from src.models.image_only import ImageOnly
 from src.models.late_fusion import LateFusion
 from src.models.text_only import TextOnly
 from src.utils.env import HF_TOKEN
@@ -62,6 +63,12 @@ def build_model(cfg):
         )
     if cfg.model_name == "text_only":
         return TextOnly(
+            hidden_dim=cfg.hidden_dim,
+            num_classes=cfg.num_classes,
+            dropout=cfg.dropout,
+        )
+    if cfg.model_name == "image_only":
+        return ImageOnly(
             hidden_dim=cfg.hidden_dim,
             num_classes=cfg.num_classes,
             dropout=cfg.dropout,
