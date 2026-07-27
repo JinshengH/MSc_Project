@@ -23,6 +23,12 @@ class Config:
     num_layers: int = 6
     num_classes: int = 3
 
+    # camc_ablation only (Exp 4, guide §5.2): drop the cross-attention
+    # stack and/or restrict the fusion vector to a subset of CAMC's parts
+    # ("itdp" = img CLS, text CLS, |t-i|, t*i, in CAMC's concat order)
+    use_cross_attn: bool = True
+    fusion: str = "itdp"
+
     # Preprocessing; defaults reproduce the BERT+ViT experiments. CLIP
     # experiments override both (CLIP tokenizer caps text at 77 tokens and
     # its image normalisation differs from ImageNet's).
