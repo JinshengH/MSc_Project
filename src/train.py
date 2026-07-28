@@ -19,6 +19,7 @@ from sklearn.metrics import f1_score, recall_score
 
 from src.models.CAMC import CAMC
 from src.models.ablation import CAMCAblation
+from src.models.clip_camc import CLIPCAMC
 from src.models.clip_fusion import CLIPFusion
 from src.models.image_only import ImageOnly
 from src.models.late_fusion import LateFusion
@@ -99,6 +100,20 @@ def build_model(cfg):
         return CLIPFusion(
             model=clip_dir,
             hidden_dim=cfg.hidden_dim,
+            num_classes=cfg.num_classes,
+            dropout=cfg.dropout,
+        )
+    if cfg.model_name == "clip_camc":
+        clip_dir = paths.resolve_path(cfg.clip_model_dir)
+        if not (clip_dir / "model.safetensors").exists():
+            raise FileNotFoundError(
+                f"CLIP weights not found at {clip_dir}. Run "
+                "`python scripts/convert_clip_to_safetensors.py` once first.")
+        return CLIPCAMC(
+            model=clip_dir,
+            hidden_dim=cfg.hidden_dim,
+            num_heads=cfg.num_heads,
+            num_layers=cfg.num_layers,
             num_classes=cfg.num_classes,
             dropout=cfg.dropout,
         )
