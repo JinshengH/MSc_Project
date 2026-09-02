@@ -1,0 +1,5 @@
+official_split,visible_conflict,event_provenance,external_knowledge,temporal_provenance,other,n
+person_sbert_text_text,14,35,3,1,0,53
+scene_resnet_place,30,32,10,1,1,74
+semantics_clip_text_image,18,5,30,0,2,55
+semantics_clip_text_text,36,8,23,1,0,68
