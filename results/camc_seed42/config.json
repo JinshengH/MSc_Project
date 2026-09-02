@@ -1,0 +1,21 @@
+{
+  "exp_name": "camc_seed42",
+  "seed": 42,
+  "data_dir": "/mnt/flash/tmp/job.6543990/snli-ve",
+  "results_dir": "/mnt/scratch/krpn0421/msc_project/results",
+  "staged_data_name": "snli-ve",
+  "hidden_dim": 768,
+  "num_heads": 8,
+  "num_layers": 6,
+  "num_classes": 3,
+  "epochs": 5,
+  "batch_size": 128,
+  "lr": 0.0001,
+  "weight_decay": 0.0001,
+  "max_grad_norm": 1.0,
+  "subset": 0,
+  "num_workers": 8,
+  "config_name": "camc_seed42",
+  "output_dir": "/mnt/scratch/krpn0421/msc_project/results/camc_seed42",
+  "device": "cuda"
+}
