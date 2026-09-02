@@ -40,7 +40,10 @@ analysis/              machine-generated outputs behind every reported number
 results/               per-run configuration and training record (23 runs)
 jupyter/               exploratory notebooks
 
-annotations_500.csv    the relabelled diagnostic subset (500 rows)
+data/
+└── newsclippings/
+    └── annotations_500.csv     the relabelled diagnostic subset (500 rows)
+
 environment.yml        conda environment (Python 3.11, PyTorch, transformers)
 setup.sh               environment bootstrap
 visualnews_test_files.txt   file list used to fetch the VisualNews subset
@@ -123,7 +126,7 @@ Every reported experiment runs from a configuration module, so a result can be r
 
 ## The diagnostic subset
 
-`annotations_500.csv` holds 500 image–text pairs from the NewsCLIPpings test split, one per row, with:
+`data/newsclippings/annotations_500.csv` holds 500 image–text pairs from the NewsCLIPpings test split, one per row, with:
 
 - the identifiers that locate each pair in NewsCLIPpings and VisualNews
 - the benchmark's own veracity label and retrieval method
